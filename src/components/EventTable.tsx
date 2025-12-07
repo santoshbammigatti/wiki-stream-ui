@@ -1,11 +1,32 @@
-
-import React from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Chip, Tooltip, Typography
 } from '@mui/material';
 import dayjs from 'dayjs';
 import type { RecentChangeEvent } from '../types';
+import NamespaceBadge from './NamespaceBadge';
+
+// Add keyframe animation for new rows
+const slideInAnimation = `
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+`;
+
+// Inject the animation into the document
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = slideInAnimation;
+  document.head.appendChild(styleSheet);
+}
 
 type Props = {
   events: RecentChangeEvent[];
@@ -29,11 +50,34 @@ function getDeltaColor(delta: number): string {
 }
 
 export default function EventTable({ events }: Props) {
+  const [currentTime, setCurrentTime] = useState(() => Math.floor(Date.now() / 1000));
+
+  // Update current time every second for age calculations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (events.length === 0) {
     return (
-      <Paper elevation={0} sx={{ p: 8, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          No events yet. Click "Start Stream" to begin.
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 8, 
+          textAlign: 'center',
+          animation: 'fadeIn 0.5s ease-out'
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          color="text.secondary"
+          sx={{
+            animation: 'float 3s ease-in-out infinite'
+          }}
+        >
+          📡 No events yet. Click "Connect" to begin streaming.
         </Typography>
       </Paper>
     );
@@ -59,17 +103,35 @@ export default function EventTable({ events }: Props) {
           {events.map((e, idx) => {
             const delta = e.length ? (e.length.new ?? 0) - (e.length.old ?? 0) : 0;
             const deltaStr = deltaText(e.length);
+            const ageSeconds = e.timestamp ? currentTime - e.timestamp : 0;
+            const opacity = e.timestamp ? Math.max(0.4, 1 - (ageSeconds / 120)) : 1;
             
             return (
               <TableRow 
                 key={idx}
                 sx={{
-                  '&:hover': { bgcolor: 'action.hover' },
-                  transition: 'background-color 0.2s',
+                  '&:hover': { 
+                    bgcolor: 'action.hover',
+                    transform: 'scale(1.01)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: opacity,
+                  animation: idx < 5 ? `slideInRight 0.4s ease-out ${idx * 0.05}s both` : 'none'
                 }}
               >
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                  {e.timestamp ? dayjs(e.timestamp * 1000).format('HH:mm:ss') : ''}
+                  <Tooltip 
+                    title={e.timestamp 
+                      ? `${ageSeconds}s ago • ${ageSeconds < 10 ? '🟢 Fresh' : ageSeconds < 30 ? '🟡 Recent' : '🟠 Old'}`
+                      : 'Unknown'
+                    } 
+                    arrow
+                  >
+                    <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                      {e.timestamp ? dayjs(e.timestamp * 1000).format('HH:mm:ss') : ''}
+                    </Typography>
+                  </Tooltip>
                 </TableCell>
                 <TableCell>
                   <Chip 
@@ -88,9 +150,7 @@ export default function EventTable({ events }: Props) {
                   />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {typeof e.namespace === 'number' ? e.namespace : ''}
-                  </Typography>
+                  <NamespaceBadge namespace={e.namespace} />
                 </TableCell>
                 <TableCell>
                   <Tooltip title={e.title || ''} arrow>
