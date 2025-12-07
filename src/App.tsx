@@ -9,10 +9,16 @@ import {
   Button,
   Chip,
   ThemeProvider,
+  CssBaseline,
+  Box,
+  Paper,
+  Divider,
 } from "@mui/material";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopIcon from "@mui/icons-material/Stop";
+import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import EventTable from "./components/EventTable";
 import Filters, { type Filters as FiltersType } from "./components/Filters";
 import { useEventSource } from "./hooks/useEventSource";
@@ -50,71 +56,146 @@ export default function App() {
     /*maxItems*/ 200
   );
 
-  const handleApply = () => {
-    connect(); // (re)connect with current filters
-  };
-
   const toggleTheme = () =>
     setMode((prev) => (prev === "light" ? "dark" : "light"));
 
+  const getStatusColor = () => {
+    switch (status) {
+      case "open":
+        return "success";
+      case "connecting":
+        return "info";
+      case "error":
+        return "error";
+      case "closed":
+        return "warning";
+      default:
+        return "default";
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case "open":
+        return "Connected";
+      case "connecting":
+        return "Connecting...";
+      case "error":
+        return "Error";
+      case "closed":
+        return "Disconnected";
+      default:
+        return "Idle";
+    }
+  };
+
   return (
     <ThemeProvider theme={makeAppTheme(mode)}>
-      <>
-        <AppBar position="sticky" elevation={0}>
+      <CssBaseline />
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <AppBar position="sticky" elevation={0} sx={{ backdropFilter: "blur(10px)" }}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              Wikipedia Live Stream
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
+              📡 Wikipedia Live Stream
             </Typography>
 
             <Chip
-              label={status.toUpperCase()}
-              color={
-                status === "open"
-                  ? "success"
-                  : status === "error"
-                  ? "error"
-                  : "default"
-              }
-              variant="outlined"
-              sx={{ mr: 2 }}
+              label={getStatusText()}
+              color={getStatusColor()}
+              size="medium"
+              sx={{ 
+                mr: 2,
+                fontWeight: 600,
+                minWidth: 120,
+              }}
             />
 
             <IconButton
               color="inherit"
               onClick={toggleTheme}
-              title="Toggle theme"
+              title={`Switch to ${mode === "light" ? "dark" : "light"} mode`}
+              sx={{ 
+                borderRadius: 2,
+                "&:hover": { bgcolor: "rgba(255,255,255,0.1)" }
+              }}
             >
               {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
             </IconButton>
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-          <Filters
-            filters={filters}
-            onChange={setFilters}
-            onApply={handleApply}
-          />
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
+          <Paper elevation={3} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 600 }}>
+              🔍 Stream Filters
+            </Typography>
+            <Filters
+              filters={filters}
+              onChange={setFilters}
+            />
 
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-            <Button variant="contained" color="success" onClick={connect}>
-              Connect
-            </Button>
-            <Button variant="outlined" color="warning" onClick={disconnect}>
-              Disconnect
-            </Button>
-            <Button
-              variant="text"
-              startIcon={<RefreshIcon />}
-              onClick={() => setEvents([])}
+            <Divider sx={{ my: 2 }} />
+
+            <Stack 
+              direction={{ xs: "column", sm: "row" }} 
+              spacing={2} 
+              sx={{ mt: 2 }}
             >
-              Clear list
-            </Button>
-          </Stack>
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                startIcon={<PlayArrowIcon />}
+                onClick={connect}
+                disabled={status === "open" || status === "connecting"}
+                sx={{ 
+                  minWidth: 160,
+                  fontWeight: 600,
+                  boxShadow: 3,
+                }}
+              >
+                Start Stream
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                size="large"
+                startIcon={<StopIcon />}
+                onClick={disconnect}
+                disabled={status === "closed" || status === "idle"}
+                sx={{ 
+                  minWidth: 160,
+                  fontWeight: 600,
+                }}
+              >
+                Stop Stream
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setEvents([])}
+                disabled={events.length === 0}
+                sx={{ 
+                  minWidth: 160,
+                  fontWeight: 600,
+                }}
+              >
+                Clear Events
+              </Button>
+            </Stack>
+          </Paper>
 
-          <EventTable events={events} />
+          <Paper elevation={2} sx={{ borderRadius: 3, overflow: "hidden" }}>
+            <Box sx={{ p: 2, bgcolor: "primary.main", color: "white" }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                📊 Live Events ({events.length})
+              </Typography>
+            </Box>
+            <EventTable events={events} />
+          </Paper>
         </Container>
-      </>
+      </Box>
     </ThemeProvider>
   );
 }
